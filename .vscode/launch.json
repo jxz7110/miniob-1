@@ -5,25 +5,31 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "(gdb) MiniOB observer",
             "type": "cppdbg",
             "request": "launch",
-            "name": "Debug",
-            "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
-            "args": ["-f", "${workspaceFolder}/etc/observer.ini", "-P", "cli"],
-            "cwd": "${workspaceFolder}/${defaultBuildTask}/",
-            "externalConsole":true,
-            "internalConsoleOptions": "openOnSessionStart",
-            "osx": {
-                "MIMode": "lldb"
-            }
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "LLDB",
-            "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
-            "args": ["-f", "${workspaceFolder}/etc/observer.ini", "-P", "cli"],
-            "cwd": "${workspaceFolder}/${defaultBuildTask}/"
+            "program": "${workspaceFolder}/build/bin/observer",
+            "args": [
+                "-f", "../etc/observer.ini",
+                "-p", "6789"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
         }
     ]
 }

@@ -175,7 +175,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
   if (RC::SUCCESS != sql_result->return_code() || !sql_result->has_operator()) {
     return write_state(event, need_disconnect);
   }
-
+  //打开对应的表
   rc = sql_result->open();
   if (OB_FAIL(rc)) {
     sql_result->close();
@@ -185,7 +185,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
 
   const TupleSchema &schema = sql_result->tuple_schema();
   const int cell_num = schema.cell_num();
-
+  //输出表头
   for (int i = 0; i < cell_num; i++) {
     const TupleCellSpec &spec = schema.cell_at(i);
     const char *alias = spec.alias();
