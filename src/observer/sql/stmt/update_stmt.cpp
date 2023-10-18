@@ -46,9 +46,16 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
   const int value_num = 1;
   const TableMeta &table_meta = table->table_meta();
 
-  // check fields type
+  // check fields name
   const std::string attribute_name = update.attribute_name;
   const FieldMeta *field_meta = table_meta.field(attribute_name.c_str());
+  if (nullptr == field_meta) {
+    LOG_WARN("field name not exist. table=%s, field=%s",
+        table_name, attribute_name.c_str());
+    return RC::SCHEMA_FIELD_NOT_EXIST;
+  }
+
+  // check fields type
   const AttrType field_type = field_meta->type();
   const AttrType value_type = values->attr_type();
   if (field_type != value_type) {  // TODO try to convert the value type to field type
