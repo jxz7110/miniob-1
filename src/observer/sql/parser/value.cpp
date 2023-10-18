@@ -123,7 +123,7 @@ void Value::set_date(int val)
   length_ = sizeof(val);
 }
 
-void Value::set_date(char *s)
+void Value::set_date(const char *s)
 {
     int year,month,day;
     sscanf(s,"%d-%d-%d", &year, &month,& day);

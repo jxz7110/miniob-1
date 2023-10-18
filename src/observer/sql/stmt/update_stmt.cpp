@@ -22,7 +22,7 @@ UpdateStmt::UpdateStmt(Table *table, const std::string attribute_name, const Val
     : table_(table), attribute_name_(attribute_name), values_(values), value_amount_(value_amount), filter_stmt_(filter_stmt)
 {}
 
-RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
+RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
 {
   const char *table_name = update.relation_name.c_str();
   if (nullptr == db || nullptr == table_name) {
@@ -42,8 +42,8 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
   table_map.insert(std::pair<std::string, Table *>(std::string(table_name), table));
 
   // 只有一个update的值 无需检查数量
-  const Value *values = &update.value;
-  const int value_num = 1;
+  Value *values = &update.value;
+  int value_num = 1;
   const TableMeta &table_meta = table->table_meta();
 
   // check fields name
@@ -59,9 +59,21 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
   const AttrType field_type = field_meta->type();
   const AttrType value_type = values->attr_type();
   if (field_type != value_type) {  // TODO try to convert the value type to field type
-    LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
-        table_name, field_meta->name(), field_type, value_type);
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    if (field_type == AttrType::DATES && value_type == AttrType::CHARS) {
+      Value date;
+      date.set_date(values->get_string().c_str());
+      if (date.check_date()) {
+        values->set_value(date);
+      } else {
+        LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+            table_name, field_meta->name(), field_type, value_type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;  
+      }
+    } else {
+      LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+          table_name, field_meta->name(), field_type, value_type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
   }
 
   FilterStmt *filter_stmt = nullptr;
