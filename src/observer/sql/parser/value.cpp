@@ -269,6 +269,9 @@ int Value::get_int() const
     case FLOATS: {
       return (int)(num_value_.float_value_);
     }
+    case DATES: {
+      return (int)(num_value_.date_value_);
+    }
     case BOOLEANS: {
       return (int)(num_value_.bool_value_);
     }
@@ -297,6 +300,9 @@ float Value::get_float() const
     case FLOATS: {
       return num_value_.float_value_;
     } break;
+    case DATES: {
+      return float(num_value_.date_value_);
+    }break;
     case BOOLEANS: {
       return float(num_value_.bool_value_);
     } break;
@@ -341,6 +347,9 @@ bool Value::get_boolean() const
       float val = num_value_.float_value_;
       return val >= EPSILON || val <= -EPSILON;
     } break;
+    case DATES: {
+      return num_value_.date_value_ !=0;
+    }
     case BOOLEANS: {
       return num_value_.bool_value_;
     } break;
@@ -357,12 +366,20 @@ int Value::get_date() const
 {
   switch (attr_type_) {
     case CHARS: {
+      try {
+        return (int)(std::stol(str_value_));
+      }catch (std::exception const &ex) {
+        LOG_TRACE("failed to cobvert str");
+      }
     } break;
     case INTS: {
+      return num_value_.int_value_;
     } break;
     case FLOATS: {
+      return (int)(num_value_.float_value_);
     } break;
     case BOOLEANS: {
+      return (int)(num_value_.bool_value_);
     } break;
     case DATES: {
       return num_value_.date_value_;
