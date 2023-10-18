@@ -28,7 +28,7 @@ FilterStmt::~FilterStmt()
 }
 
 RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-    const ConditionSqlNode *conditions, int condition_num, FilterStmt *&stmt)
+    ConditionSqlNode *conditions, int condition_num, FilterStmt *&stmt)
 {
   RC rc = RC::SUCCESS;
   stmt = nullptr;
@@ -78,7 +78,7 @@ RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::str
 }
 
 RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-    const ConditionSqlNode &condition, FilterUnit *&filter_unit)
+     ConditionSqlNode &condition, FilterUnit *&filter_unit)
 {
   RC rc = RC::SUCCESS;
 
@@ -93,6 +93,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   if (condition.left_is_attr) {
     Table *table = nullptr;
     const FieldMeta *field = nullptr;
+    //找表和属性
     rc = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot find attr");
@@ -101,6 +102,22 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     FilterObj filter_obj;
     filter_obj.init_attr(Field(table, field));
     filter_unit->set_left(filter_obj);
+    if(condition.left_is_attr&&!condition.right_is_attr){
+      if(field->type()!=condition.right_value.attr_type()){
+        if(field->type()==DATES&&condition.right_value.attr_type()==CHARS){
+          Value date;
+          char *s=const_cast<char*>(condition.right_value.data());
+          date.set_date(s);
+          //检查date的合法性
+          if(date.check_date()){
+            int t=date.get_date();
+            condition.right_value.set_date(t);
+          }else{
+            return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          }
+        }
+      }
+    }
   } else {
     FilterObj filter_obj;
     filter_obj.init_value(condition.left_value);
@@ -118,12 +135,28 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     FilterObj filter_obj;
     filter_obj.init_attr(Field(table, field));
     filter_unit->set_right(filter_obj);
+    if(!condition.left_is_attr&&condition.right_is_attr){
+      if(condition.left_value.attr_type()!=field->type()){
+        if(field->type()==DATES&&condition.left_value.attr_type()==CHARS){
+          Value date;
+          char *s=const_cast<char*>(condition.left_value.data());
+          date.set_date(s);
+          //检查date的合法性
+          if(date.check_date()){
+            int t=date.get_date();
+            condition.left_value.set_date(t);
+          }else{
+            return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          }
+        }
+      }
+    }
   } else {
     FilterObj filter_obj;
     filter_obj.init_value(condition.right_value);
     filter_unit->set_right(filter_obj);
   }
-
+  
   filter_unit->set_comp(comp);
 
   // 检查两个类型是否能够比较
