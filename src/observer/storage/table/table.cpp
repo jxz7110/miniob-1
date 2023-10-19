@@ -50,11 +50,11 @@ Table::~Table()
   LOG_INFO("Table has been closed: %s", name());
 }
 
-RC Table::create(int32_t table_id, 
-                 const char *path, 
-                 const char *name, 
-                 const char *base_dir, 
-                 int attribute_count, 
+RC Table::create(int32_t table_id,
+                 const char *path,
+                 const char *name,
+                 const char *base_dir,
+                 int attribute_count,
                  const AttrInfoSqlNode attributes[])
 {
   if (table_id < 0) {
@@ -125,6 +125,44 @@ RC Table::create(int32_t table_id,
   LOG_INFO("Successfully create table %s:%s", base_dir, name);
   return rc;
 }
+
+RC Table::destroy(const char *base_dir)
+{
+  RC rc = sync(); // 刷新脏页
+  if(rc != RC::SUCCESS) return rc;
+
+  std::string path = table_meta_file(base_dir, name());
+  if(unlink(path.c_str())!=0){ // 删除表元数据的文件
+    LOG_ERROR("Failed to remove meta file=%s, errno=%d", path.c_str(),errno);
+    return RC::FILE_REMOVE;
+  }
+
+  std::string data_file = std::string(base_dir) + "/" + name() + TABLE_DATA_SUFFIX;
+  if(unlink(data_file.c_str()) != 0){ // 删除表数据的文件
+    LOG_ERROR("Failed to remove data file=%s, errno=%d", data_file.c_str(), errno);
+    return RC::FILE_REMOVE;
+  }
+
+//  std::string text_data_file = std::string(base_dir) + "/" + name() + TABLE_TEXT_DATA_SUFFIX;
+//  if(unlink(text_data_file.c_str()) != 0) { // 删除表实现text字段的数据文件（后续实现了text case时需要考虑，最开始可以不考虑这个逻辑）
+//    LOG_ERROR("Failed to remove text data file=%s, errno=%d", text_data_file.c_str(), errno);
+//    return RC::FILE_REMOVE;
+//  }
+
+  const int index_num = table_meta_.index_num();
+  for (int i = 0; i <index_num; ++i){
+    ((BplusTreeIndex*)indexes_[i]) -> close();
+    const IndexMeta* index_meta = table_meta_.index(i);
+    std::string index_file = table_index_file(base_dir,name(),index_meta->name());
+    if(unlink(index_file.c_str()) != 0){
+      LOG_ERROR("Failed to remove index file=%s, errno=%d", index_file.c_str(),errno);
+      return RC::FILE_REMOVE;
+    }
+  }
+
+  return RC::SUCCESS;
+}
+
 
 RC Table::open(const char *meta_file, const char *base_dir)
 {
@@ -387,12 +425,12 @@ RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to insert record into index while creating index. table=%s, index=%s, rc=%s",
                name(), index_name, strrc(rc));
-      return rc;         
+      return rc;
     }
   }
   scanner.close_scan();
   LOG_INFO("inserted all records into new index. table=%s, index=%s", name(), index_name);
-  
+
   indexes_.push_back(index);
 
   /// 接下来将这个索引放到表的元数据中
@@ -440,7 +478,7 @@ RC Table::delete_record(const Record &record)
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
     rc = index->delete_entry(record.data(), &record.rid());
-    ASSERT(RC::SUCCESS == rc, 
+    ASSERT(RC::SUCCESS == rc,
            "failed to delete entry from index. table name=%s, index name=%s, rid=%s, rc=%s",
            name(), index->index_meta().name(), record.rid().to_string().c_str(), strrc(rc));
   }
