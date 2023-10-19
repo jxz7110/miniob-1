@@ -91,7 +91,7 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
   RC rc = RC::SUCCESS;
 
   int cmp_result = 0;
-  if (comp_ != LIKE_OP) {
+  if (comp_ != LIKE_OP && comp_ != NOT_LIKE) {
     cmp_result = left.compare(right);
     result = false;
     switch (comp_) {
@@ -121,9 +121,9 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
   } else {
     cmp_result = left.like(right);
     if (cmp_result == 0) {
-      result = true;
+      result = (comp_ == LIKE_OP ? true : false);
     } else if (cmp_result == 1) {
-      result = false;
+      result = (comp_ == LIKE_OP ? false : true);
     } else {
       LOG_WARN("\"like\" operator only support char, not %d and %d", left.attr_type(), right.attr_type());
       rc = RC::SCHEMA_FIELD_TYPE_MISMATCH;
