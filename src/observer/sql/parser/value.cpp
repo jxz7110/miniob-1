@@ -252,6 +252,30 @@ int Value::compare(const Value &other) const
   return -1;  // TODO return rc?
 }
 
+/*
+  返回1是不匹配
+  返回0是匹配
+  返回-1是报错，类型不符
+*/
+int Value::like(const Value &other) const
+{
+  if (this->attr_type_ != AttrType::CHARS || other.attr_type_ != AttrType::CHARS) {
+    return -1;
+  }
+
+  // 处理两个字符串的like操作
+  // 这里得把this和other的位置反过来
+  if (true == common::like_string(
+      (void *)other.str_value_.c_str(),
+      other.str_value_.length(),
+      (void *)this->str_value_.c_str(),
+      this->str_value_.length()
+      )) {
+    return 0;
+  }
+  return 1;
+}
+
 int Value::get_int() const
 {
   switch (attr_type_) {

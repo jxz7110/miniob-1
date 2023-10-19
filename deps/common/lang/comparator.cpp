@@ -60,4 +60,48 @@ int compare_string(void *arg1, int arg1_max_length, void *arg2, int arg2_max_len
   return 0;
 }
 
+bool like_string(void *arg1, int arg1_max_length, void *arg2, int arg2_max_length)
+{
+  char * pattern = (char *)arg1;
+  char * text = (char *)arg2;
+
+  int p = 0; // pointer for pattern
+  int t = 0; // pointer for text
+  int star = -1; // index of last encountered *
+  int match = 0; // index of last matched character in text
+
+  while (t < arg2_max_length)
+  {
+    if (p < arg1_max_length && (pattern[p] == '_' || pattern[p] == text[t]))
+    {
+      p++;
+      t++;
+    }
+    else if (p < arg1_max_length && pattern[p] == '%')
+    {
+      star = p;
+      match = t;
+      p++;
+    }
+    else if (star != -1)
+    {
+      p = star + 1;
+      match++;
+      t = match;
+    }
+    else
+    {
+      return false;
+    }
+  }
+
+  while (p < arg1_max_length && pattern[p] == '%')
+  {
+    p++;
+  }
+
+  return p == arg1_max_length;
+}
+
+
 } // namespace common
