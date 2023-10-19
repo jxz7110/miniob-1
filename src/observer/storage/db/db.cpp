@@ -101,6 +101,27 @@ RC Db::create_table(const char *table_name, int attribute_count, const AttrInfoS
   return RC::SUCCESS;
 }
 
+RC Db::drop_table(const char *table_name)
+{
+  RC rc = RC::SUCCESS;
+  // check if table_name exists
+  if (opened_tables_.count(table_name) == 0) {
+    LOG_WARN("There is no table named %s", table_name);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+
+  auto it = opened_tables_.find(table_name);
+  Table* table = it->second;  // 至于为什么要->second, 见  std::unordered_map<std::string, Table *> opened_tables_;
+  rc = table->destroy(path_.c_str());
+  if(rc != RC::SUCCESS) return rc;
+
+  opened_tables_.erase(it);
+  delete table;
+  LOG_INFO("Drop table success. table name=%s", table_name);
+  return RC::SUCCESS;
+}
+
+
 Table *Db::find_table(const char *table_name) const
 {
   std::unordered_map<std::string, Table *>::const_iterator iter = opened_tables_.find(table_name);
