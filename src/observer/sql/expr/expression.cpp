@@ -89,31 +89,45 @@ ComparisonExpr::~ComparisonExpr()
 RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &result) const
 {
   RC rc = RC::SUCCESS;
-  int cmp_result = left.compare(right);
-  result = false;
-  switch (comp_) {
-    case EQUAL_TO: {
-      result = (0 == cmp_result);
-    } break;
-    case LESS_EQUAL: {
-      result = (cmp_result <= 0);
-    } break;
-    case NOT_EQUAL: {
-      result = (cmp_result != 0);
-    } break;
-    case LESS_THAN: {
-      result = (cmp_result < 0);
-    } break;
-    case GREAT_EQUAL: {
-      result = (cmp_result >= 0);
-    } break;
-    case GREAT_THAN: {
-      result = (cmp_result > 0);
-    } break;
-    default: {
-      LOG_WARN("unsupported comparison. %d", comp_);
-      rc = RC::INTERNAL;
-    } break;
+
+  int cmp_result = 0;
+  if (comp_ != LIKE_OP) {
+    cmp_result = left.compare(right);
+    result = false;
+    switch (comp_) {
+      case EQUAL_TO: {
+        result = (0 == cmp_result);
+      } break;
+      case LESS_EQUAL: {
+        result = (cmp_result <= 0);
+      } break;
+      case NOT_EQUAL: {
+        result = (cmp_result != 0);
+      } break;
+      case LESS_THAN: {
+        result = (cmp_result < 0);
+      } break;
+      case GREAT_EQUAL: {
+        result = (cmp_result >= 0);
+      } break;
+      case GREAT_THAN: {
+        result = (cmp_result > 0);
+      } break;
+      default: {
+        LOG_WARN("unsupported comparison. %d", comp_);
+        rc = RC::INTERNAL;
+      } break;
+    }
+  } else {
+    cmp_result = left.like(right);
+    if (cmp_result == 0) {
+      result = true;
+    } else if (cmp_result == 1) {
+      result = false;
+    } else {
+      LOG_WARN("\"like\" operator only support char, not %d and %d", left.attr_type(), right.attr_type());
+      rc = RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
   }
 
   return rc;

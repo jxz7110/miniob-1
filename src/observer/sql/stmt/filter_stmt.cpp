@@ -93,7 +93,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   if (condition.left_is_attr) {
     Table *table = nullptr;
     const FieldMeta *field = nullptr;
-    //找表和属性
+    // 找表和属性
     rc = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot find attr");
@@ -108,7 +108,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
           Value date;
           char *s=const_cast<char*>(condition.right_value.data());
           date.set_date(s);
-          //检查date的合法性
+          // 检查date的合法性
           if(date.check_date()){
             int t=date.get_date();
             condition.right_value.set_date(t);
@@ -141,7 +141,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
           Value date;
           char *s=const_cast<char*>(condition.left_value.data());
           date.set_date(s);
-          //检查date的合法性
+          // 检查date的合法性
           if(date.check_date()){
             int t=date.get_date();
             condition.left_value.set_date(t);
