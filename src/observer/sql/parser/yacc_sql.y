@@ -150,6 +150,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <rel_attr_list>       select_attr
 %type <relation_list>       rel_list
 %type <rel_attr_list>       attr_list
+%type <rel_attr_list>       agg_list
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <sql_node>            calc_stmt
@@ -521,7 +522,7 @@ select_attr:
       $$->emplace_back(*$1);
       delete $1;
     }
-    | agg_attr attr_list{
+    | agg_attr agg_list {
       if ($2 != nullptr) {
         $$ = $2;
       } else {
@@ -597,11 +598,17 @@ attr_list:
       } else {
         $$ = new std::vector<RelAttrSqlNode>;
       }
-
       $$->emplace_back(*$2);
       delete $2;
     }
-    |COMMA agg_attr attr_list {
+    ;
+
+agg_list:
+    /* empty */
+    {
+        $$ = nullptr;
+    }
+    | COMMA agg_attr agg_list {
       if($3 !=nullptr){
         $$ = $3;
       } else {
