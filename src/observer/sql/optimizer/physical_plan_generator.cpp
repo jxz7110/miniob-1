@@ -34,6 +34,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/join_physical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/calc_physical_operator.h"
+#include "sql/operator/aggregation_func_logical_operator.h"
+#include "sql/operator/aggregation_func_physical_operator.h"
 #include "sql/expr/expression.h"
 #include "common/log/log.h"
 
@@ -79,7 +81,9 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
     case LogicalOperatorType::JOIN: {
       return create_plan(static_cast<JoinLogicalOperator &>(logical_operator), oper);
     } break;
-
+    case LogicalOperatorType::AGGREGATION: {
+      return create_plan(static_cast<AggregationLogicalOperator &>(logical_operator), oper);
+    } break;
     default: {
       return RC::INVALID_ARGUMENT;
     }
@@ -325,3 +329,45 @@ RC PhysicalPlanGenerator::create_plan(CalcLogicalOperator &logical_oper, std::un
   return rc;
 }
 
+RC PhysicalPlanGenerator::create_plan(AggregationLogicalOperator &agg_oper, std::unique_ptr<PhysicalOperator> &oper)
+{
+  vector<unique_ptr<LogicalOperator>> &child_opers = agg_oper.children();
+  unique_ptr<PhysicalOperator> child_phy_oper;
+  RC rc=RC::SUCCESS;
+  if(!child_opers.empty()){
+    LogicalOperator *child_oper = child_opers.front().get();
+    rc = create (*child_oper, child_phy_oper);
+    if(rc != RC::SUCCESS){
+      LOG_WARN("dailed to create project logical operator's child physical operator. rc=%s",strrc(rc));
+
+    }
+  }
+  const vector<string> &agg_types=agg_oper.agg_type();
+  const vector<string> &agg_names=agg_oper.agg_name();
+  vector<AggregateType> agg_type_t;
+  for(const std::string &agg_type : agg_types){
+    if(agg_type=="max"){
+      agg_type_t.push_back(AggregateType::MAX);
+    }else if(agg_type == "min"){
+      agg_type_t.push_back((AggregateType::MIN));
+    }else if(agg_type == "count"){
+      agg_type_t.push_back(((AggregateType::COUNT)));
+    }else if(agg_type == "sum"){
+      agg_type_t.push_back(((AggregateType::SUM)));
+    }else if(agg_type == "avg"){
+      agg_type_t.push_back(((AggregateType::AVG)));
+    }else{
+      agg_type_t.push_back(((AggregateType::UNKNOW)));
+    }
+
+  }
+
+  AggregationPhysicalOperator *aggreagte_operator = new AggregationPhysicalOperator(agg_type_t,agg_names);
+  if(child_phy_oper){
+    aggreagte_operator->add_child(std::move(child_phy_oper));
+  }
+  oper =unique_ptr<PhysicalOperator>(aggreagte_operator);
+  LOG_TRACE("create a aggregation physical operator");
+
+  return rc;
+}

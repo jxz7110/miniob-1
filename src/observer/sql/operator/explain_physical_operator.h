@@ -34,6 +34,9 @@ public:
   RC open(Trx *trx) override;
   RC next() override;
   RC close() override;
+  RC set_schema(TupleSchema &schema){
+    return RC::SUCCESS;
+  }
   Tuple *current_tuple() override;
 
 private:

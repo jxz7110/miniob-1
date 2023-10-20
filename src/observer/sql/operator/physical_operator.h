@@ -20,11 +20,10 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/rc.h"
 #include "sql/expr/tuple.h"
-
 class Record;
 class TupleCellSpec;
 class Trx;
-
+class TupleSchema;
 /**
  * @brief 物理算子
  * @defgroup PhysicalOperator
@@ -44,6 +43,7 @@ enum class PhysicalOperatorType
   PREDICATE,
   PROJECT,
   CALC,
+  AGGREGATE,
   STRING_LIST,
   DELETE,
   INSERT,
@@ -72,7 +72,9 @@ public:
   virtual RC open(Trx *trx) = 0;
   virtual RC next() = 0;
   virtual RC close() = 0;
-
+  virtual RC set_schema(TupleSchema &schema){
+      return RC::SUCCESS;
+  };
   virtual Tuple *current_tuple() = 0;
 
   void add_child(std::unique_ptr<PhysicalOperator> oper)

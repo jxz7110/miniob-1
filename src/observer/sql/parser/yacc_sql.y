@@ -78,6 +78,13 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         STRING_T
         FLOAT_T
         DATE_T
+        //agg-fun
+        MAX
+        MIN
+        COUNT
+        AVG
+        SUM
+
         HELP
         EXIT
         DOT //QUOTE
@@ -98,8 +105,6 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         LE
         GE
         NE
-        LIKE
-        NOT
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -108,6 +113,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   Value *                           value;
   enum CompOp                       comp;
   RelAttrSqlNode *                  rel_attr;
+  RelAttrSqlNode *                  agg_attr;//聚合部分信息
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
   Expression *                      expression;
@@ -133,7 +139,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <value>               value
 %type <number>              number
 %type <comp>                comp_op
-%type <rel_attr>            rel_attr
+%type <rel_attr>            rel_attr//聚合函数部分
+%type <agg_attr>            agg_attr
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <value_list>          value_list
@@ -165,6 +172,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <sql_node>            help_stmt
 %type <sql_node>            exit_stmt
 %type <sql_node>            command_wrapper
+//FUN-TYPE
+%type <string>              agg_type
+
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
 
@@ -510,6 +520,15 @@ select_attr:
       $$->emplace_back(*$1);
       delete $1;
     }
+    | agg_attr attr_list{
+      if ($2 != nullptr) {
+        $$ = $2;
+      } else {
+        $$ = new std::vector<RelAttrSqlNode>;
+      }
+      $$->emplace_back(*$1);
+      delete $1;
+    }
     ;
 
 rel_attr:
@@ -526,7 +545,46 @@ rel_attr:
       free($3);
     }
     ;
+agg_attr:
+    agg_type LBRACE ID RBRACE {
+      $$ = new RelAttrSqlNode;
+      $$->attribute_name = $3;
+      $$->aggregation_type = $1;
+      free($3);
+    }
+    |agg_type LBRACE '*' RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$->attribute_name = '*';
+      $$->aggregation_type = $1;
+    }
+    |agg_type LBRACE number RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$->attribute_name = '1';
+      $$->aggregation_type = $1;
+    };
 
+agg_type:
+    MAX{
+      char str[]="max";
+      $$=str;
+    }
+    |MIN{
+      char str[]="min";
+      $$=str;
+    }
+    |COUNT{
+      char str[]="count";
+      $$=str;
+    }
+    |AVG{
+      char str[]="avg";
+      $$=str;
+    }
+    |SUM{
+      char str[]="sum";
+      $$=str;
+    }
+    ;
 attr_list:
     /* empty */
     {
@@ -539,6 +597,15 @@ attr_list:
         $$ = new std::vector<RelAttrSqlNode>;
       }
 
+      $$->emplace_back(*$2);
+      delete $2;
+    }
+    |COMMA agg_attr attr_list {
+      if($3 !=nullptr){
+        $$ = $3;
+      } else {
+        $$ = new std::vector<RelAttrSqlNode>;
+      }
       $$->emplace_back(*$2);
       delete $2;
     }
@@ -643,8 +710,6 @@ comp_op:
     | LE { $$ = LESS_EQUAL; }
     | GE { $$ = GREAT_EQUAL; }
     | NE { $$ = NOT_EQUAL; }
-    | LIKE { $$ = LIKE_OP; }
-    | NOT LIKE { $$ = NOT_LIKE; }
     ;
 
 load_data_stmt:

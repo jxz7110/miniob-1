@@ -87,7 +87,7 @@ void Value::set_data(char *data, int length)
 }
 void Value::set_int(int val)
 {
-  attr_type_ = INTS;
+  attr_type_=AttrType::INTS;
   num_value_.int_value_ = val;
   length_ = sizeof(val);
 }
@@ -415,4 +415,68 @@ int Value::get_date() const
   }
   return 0;
 
+}
+
+void Value::my_add(Value data){
+  switch (attr_type_) {
+    case CHARS: {
+
+    } break;
+    case INTS: {
+      num_value_.int_value_ = num_value_.int_value_+data.get_int();
+    } break;
+    case FLOATS: {
+      num_value_.float_value_ = num_value_.float_value_+data.get_float();
+    } break;
+    case BOOLEANS: {
+
+    } break;
+    case DATES: {
+
+    } break;
+    default: {
+
+    }
+  }
+}
+
+void Value::my_add(int data){
+  switch (attr_type_) {
+    case CHARS: {
+    } break;
+    case INTS: {
+      num_value_.int_value_ = num_value_.int_value_+data;
+    } break;
+    case FLOATS: {
+      num_value_.float_value_ = num_value_.float_value_+(float)data;
+    } break;
+    case BOOLEANS: {
+    } break;
+    case DATES: {
+    } break;
+    default: {
+    }
+  }
+}
+
+void Value::my_div(int count)
+{
+  switch (attr_type_) {
+    case CHARS: {
+    } break;
+    case INTS: {
+      num_value_.float_value_ = (float)num_value_.int_value_/count;
+    } break;
+    case FLOATS: {
+      num_value_.float_value_ = num_value_.float_value_/count;
+    } break;
+    case BOOLEANS: {
+    } break;
+    case DATES: {
+    } break;
+    default: {
+    }break;
+  }
+  attr_type_=AttrType::FLOATS;
+  length_ = sizeof(float);
 }

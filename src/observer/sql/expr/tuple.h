@@ -76,6 +76,9 @@ private:
   std::vector<TupleCellSpec> cells_;
 };
 
+
+
+
 /**
  * @brief 元组的抽象描述
  * @ingroup Tuple
@@ -127,6 +130,48 @@ public:
     return str;
   }
 };
+
+/**
+ * @brief 一行数据的元组
+ * @ingroup Tuple
+ * @details 直接就是获取聚合函数的结果
+ */
+class AggregateTuple :public Tuple
+{
+  public:
+    AggregateTuple() = default;
+    virtual ~AggregateTuple() = default;
+
+    void set_cells(const std::vector<Value> &cells)
+    {
+      cells_ = cells;
+    }
+
+    virtual int cell_num() const override
+    {
+      return static_cast<int>(cells_.size());
+    }
+
+    virtual RC cell_at(int index, Value &cell) const override
+    {
+      if (index < 0 || index >= cell_num()) {
+        return RC::NOTFOUND;
+      }
+
+      cell = cells_[index];
+      return RC::SUCCESS;
+    }
+
+    virtual RC find_cell(const TupleCellSpec &spec, Value &cell) const override
+    {
+      return RC::INTERNAL;
+    }
+
+  private:
+    std::vector<Value> cells_;
+};
+
+
 
 /**
  * @brief 一行数据的元组
@@ -273,6 +318,9 @@ public:
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override
   {
     return tuple_->find_cell(spec, cell);
+  }
+  std::vector<TupleCellSpec *> speces(){
+    return speces_;
   }
 
 #if 0

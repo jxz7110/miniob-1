@@ -42,7 +42,7 @@ public:
   RC open(Trx *trx) override;
   RC next() override;
   RC close() override;
-
+  RC set_schema(TupleSchema &schema);
   int cell_num() const
   {
     return tuple_.cell_num();

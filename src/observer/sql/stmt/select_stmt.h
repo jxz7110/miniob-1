@@ -57,9 +57,19 @@ public:
   {
     return filter_stmt_;
   }
+  std::vector<std::string> &agg_types()
+  {
+    return agg_types_;
+  }
+  std::vector<std::string> &agg_names()
+  {
+    return agg_names_;
+  }
 
 private:
   std::vector<Field> query_fields_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
+  std::vector<std::string> agg_types_;//聚合函数类型
+  std::vector<std::string> agg_names_;//聚合函数内部名
 };
