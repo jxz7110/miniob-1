@@ -77,6 +77,9 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
     if (common::is_blank(relation_attr.relation_name.c_str()) && 0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
       //判断是否是聚合函数
       if(!common::is_blank((relation_attr.aggregation_type.c_str()))){
+        if(strcmp(relation_attr.aggregation_type.c_str(),"count")!=0){
+          return RC::INVALID_ARGUMENT;
+        }
         if (tables.size() != 1) {
           LOG_WARN("invalid. I do not know the attr's table. attr=%s", relation_attr.attribute_name.c_str());
           return RC::SCHEMA_FIELD_MISSING;
