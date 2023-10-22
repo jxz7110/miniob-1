@@ -79,6 +79,33 @@ struct ConditionSqlNode
 };
 
 /**
+ * @brief 描述连接运算符
+ * @ingroup SQLParser
+ */
+enum JoinOp
+{
+  INNER_JOIN,   ///< "内连接"
+  LEFT_JOIN,    ///< "左连接"
+  RIGHT_JOIN,   ///< "右连接"
+  FULL_JOIN,    ///< "全连接"
+  CARTESIAN,    ///< "笛卡尔积"
+  NO_JOIN
+};
+
+/**
+ * @brief 描述SelectSqlNode中表的类型
+ * @ingroup SQLParser
+*/
+enum RelationType
+{
+  SPECIFIC_REL,
+  JOIN_REL,
+  GROUP_REL,
+  ALIAS_REL,
+  ERROR_REL
+};
+
+/**
  * @brief 描述一个select语句
  * @ingroup SQLParser
  * @details 一个正常的select语句描述起来比这个要复杂很多，这里做了简化。
@@ -88,12 +115,16 @@ struct ConditionSqlNode
  * where 条件 conditions，这里表示使用AND串联起来多个条件。正常的SQL语句会有OR，NOT等，
  * 甚至可以包含复杂的表达式。
  */
-
 struct SelectSqlNode
 {
   std::vector<RelAttrSqlNode>     attributes;    ///< attributes in select clause
   std::vector<std::string>        relations;     ///< 查询的表
   std::vector<ConditionSqlNode>   conditions;    ///< 查询条件，使用AND串联起来多个条件
+  RelationType                    table_type;
+  JoinOp                          join_op;
+  std::vector<SelectSqlNode *>    selections;    ///< 内嵌的各种查询，比如join连接表
+
+  ~SelectSqlNode();
 };
 
 /**

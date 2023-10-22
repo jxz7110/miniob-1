@@ -87,6 +87,11 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         WHERE
         AND
         SET
+        INNER
+        LEFT
+        RIGHT
+        FULL
+        JOIN
         ON
         LOAD
         DATA
@@ -107,6 +112,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   ConditionSqlNode *                condition;
   Value *                           value;
   enum CompOp                       comp;
+  enum JoinOp                       join_op;
+  enum RelationType                 relation_type;
+  SelectSqlNode *                   select_sql_node;
   RelAttrSqlNode *                  rel_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
@@ -133,14 +141,17 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <value>               value
 %type <number>              number
 %type <comp>                comp_op
+%type <join_op>             join_op
 %type <rel_attr>            rel_attr
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <value_list>          value_list
+%type <condition_list>      on
 %type <condition_list>      where
 %type <condition_list>      condition_list
 %type <rel_attr_list>       select_attr
-%type <relation_list>       rel_list
+%type <select_sql_node>     rel_list
+// %type <relation_list>       rel_list
 %type <rel_attr_list>       attr_list
 %type <expression>          expression
 %type <expression_list>     expression_list
@@ -422,19 +433,44 @@ select_stmt:        /*  select 语句的语法解析树*/
     SELECT select_attr FROM ID rel_list where
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
+      if ($5 != nullptr) {
+        SelectSqlNode * select_node = $5;
+        // 寻找最左叶子节点
+        while (true) {
+          if (select_node->table_type == JOIN_REL && select_node->selections.size() == 2) {
+            select_node = select_node->selections[0];
+          } else {
+            break;
+          }
+        }
+
+        // 生成新的真实表
+        SelectSqlNode * table_node = new SelectSqlNode;
+        table_node->table_type = SPECIFIC_REL;
+        table_node->relations.push_back($4);
+
+        // 真实表插入最左叶子节点
+        select_node->selections.emplace_back(std::move(table_node));
+        std::reverse(select_node->selections.begin(), select_node->selections.end());
+
+        // 将整个表的根节点放进ParsedSqlNode
+        std::swap($$->selection, *$5);
+        delete $5;
+      } else {
+        // 直接初始化真实表
+        $$->selection.table_type = SPECIFIC_REL;
+        $$->selection.relations.push_back($4);
+      }
+
       if ($2 != nullptr) {
         $$->selection.attributes.swap(*$2);
         delete $2;
       }
-      if ($5 != nullptr) {
-        $$->selection.relations.swap(*$5);
-        delete $5;
-      }
-      $$->selection.relations.push_back($4);
-      std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
-
+      
       if ($6 != nullptr) {
-        $$->selection.conditions.swap(*$6);
+        for (ConditionSqlNode node : *$6) {
+          $$->selection.conditions.push_back(node);
+        }
         delete $6;
       }
       free($4);
@@ -549,15 +585,75 @@ rel_list:
     {
       $$ = nullptr;
     }
-    | COMMA ID rel_list {
-      if ($3 != nullptr) {
-        $$ = $3;
-      } else {
-        $$ = new std::vector<std::string>;
-      }
+    | join_op ID on rel_list {
+      if ($4 != nullptr) {
+        $$ = $4;
+        SelectSqlNode * select_node = $$;
+        // 寻找最左叶子节点
+        while (true) {
+          if (select_node->table_type == JOIN_REL && select_node->selections.size() == 2) {
+            select_node = select_node->selections[0];
+          } else {
+            break;
+          }
+        }
 
-      $$->push_back($2);
+        // 生成新的join节点
+        SelectSqlNode * join_node = new SelectSqlNode;
+        join_node->table_type = JOIN_REL;
+        join_node->join_op = $1;
+
+        // 生成新的真实表
+        SelectSqlNode * table_node = new SelectSqlNode;
+        table_node->table_type = SPECIFIC_REL;
+        table_node->relations.push_back($2);
+
+        // 真实表插入join表
+        join_node->selections.emplace_back(std::move(table_node));
+
+        // join表插入最左叶子节点
+        select_node->selections.emplace_back(std::move(join_node));
+        std::reverse(select_node->selections.begin(), select_node->selections.end());
+
+        // on条件
+        if ($3 != nullptr) {
+          join_node->conditions.swap(*$3);
+          delete $3;
+        }
+      } else {
+        // 生成新的join节点
+        SelectSqlNode * join_node = new SelectSqlNode;
+        join_node->table_type = JOIN_REL;
+        join_node->join_op = $1;
+
+        // 生成新的真实表
+        SelectSqlNode * table_node = new SelectSqlNode;
+        table_node->table_type = SPECIFIC_REL;
+        table_node->relations.push_back($2);
+
+        // 真实表插入join表
+        join_node->selections.emplace_back(std::move(table_node));
+
+        // join表即返回值
+        $$ = join_node;
+
+        // on条件
+        if ($3 != nullptr) {
+          join_node->conditions.swap(*$3);
+          delete $3;
+        }
+      }
       free($2);
+    }
+    ;
+
+on:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | ON condition_list {
+      $$ = $2;
     }
     ;
 where:
@@ -646,6 +742,13 @@ comp_op:
     | LIKE { $$ = LIKE_OP; }
     | NOT LIKE { $$ = NOT_LIKE; }
     ;
+
+join_op:
+      INNER JOIN  { $$ = INNER_JOIN; }
+    | LEFT JOIN   { $$ = LEFT_JOIN; }
+    | RIGHT JOIN  { $$ = RIGHT_JOIN; }
+    | FULL JOIN   { $$ = FULL_JOIN; }
+    | COMMA       { $$ = CARTESIAN; }
 
 load_data_stmt:
     LOAD DATA INFILE SSS INTO TABLE ID 

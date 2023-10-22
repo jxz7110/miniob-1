@@ -19,6 +19,13 @@ See the Mulan PSL v2 for more details. */
 
 RC parse(char *st, ParsedSqlNode *sqln);
 
+SelectSqlNode::~SelectSqlNode()
+{
+  for (SelectSqlNode *node : selections) {
+    delete node;
+  }
+}
+
 CalcSqlNode::~CalcSqlNode()
 {
   for (Expression *expr : expressions) {
