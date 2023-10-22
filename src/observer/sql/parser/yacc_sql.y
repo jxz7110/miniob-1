@@ -123,6 +123,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<std::string> *        relation_list;
+  std::vector<std::string> *        indexion_list;
   char *                            string;
   int                               number;
   float                             floats;
@@ -151,6 +152,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <relation_list>       rel_list
 %type <rel_attr_list>       attr_list
 %type <rel_attr_list>       agg_list
+%type <indexion_list>       index_list
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <sql_node>            calc_stmt
@@ -271,17 +273,44 @@ desc_table_stmt:
     }
     ;
 
-create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+create_index_stmt:
+    CREATE INDEX ID ON ID LBRACE ID index_list RBRACE
     {
-      $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
-      CreateIndexSqlNode &create_index = $$->create_index;
-      create_index.index_name = $3;
-      create_index.relation_name = $5;
-      create_index.attribute_name = $7;
-      free($3);
-      free($5);
-      free($7);
+        $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
+        if($3 != nullptr){
+          $$->create_index.index_name = $3;
+          free($3);
+        }
+        if($5 != nullptr){
+          $$->create_index.relation_name = $5;
+          free($5);
+        }
+        if($8 != nullptr){
+          $$->create_index.attribute_names.swap(*$8);
+          delete $8;
+        }
+        if($7 != nullptr){
+          $$->create_index.attribute_names.push_back($7);
+
+        }
+        std::reverse($$->create_index.attribute_names.begin(),$$->create_index.attribute_names.end());
+        free($7);
+        
+    }
+    ;
+index_list:
+    /*empty*/
+    {
+      $$ = nullptr;
+    }
+    | COMMA ID index_list {
+        if($3 !=nullptr){
+            $$ = $3;
+        } else {
+            $$= new std::vector<std::string>;
+        }
+        $$->push_back($2);
+        free($2);
     }
     ;
 

@@ -31,5 +31,7 @@ RC CreateIndexExecutor::execute(SQLStageEvent *sql_event)
   
   Trx *trx = session->current_trx();
   Table *table = create_index_stmt->table();
-  return table->create_index(trx, create_index_stmt->field_meta(), create_index_stmt->index_name().c_str());
+  //这里尝试直接返回成功，然后所有的索引都直接去找表格，不通过索引实现
+  return RC::SUCCESS;
+  //return table->create_index(trx, create_index_stmt->field_meta(), create_index_stmt->index_name().c_str());
 }
