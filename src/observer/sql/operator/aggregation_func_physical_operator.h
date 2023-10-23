@@ -1,3 +1,7 @@
+//
+// Created by jxz110 on 2023/10/19.
+//
+
 /* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
@@ -8,48 +12,49 @@ EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
-//
-// Created by WangYunlai on 2022/07/01.
-//
 
 #pragma once
 
+#include <memory>
 #include "sql/operator/physical_operator.h"
+#include "sql/expr/tuple.h"
+
+class FilterStmt;
+
+enum class AggregateType{
+  MAX,
+  MIN,
+  COUNT,
+  AVG,
+  SUM,
+  UNKNOW,
+};
 
 /**
- * @brief 选择/投影物理算子
+ * @brief 聚合函数物理算子
  * @ingroup PhysicalOperator
  */
-class ProjectPhysicalOperator : public PhysicalOperator
+class AggregationPhysicalOperator : public PhysicalOperator
 {
 public:
-  ProjectPhysicalOperator()
-  {}
+  AggregationPhysicalOperator(std::vector<AggregateType> agg_types , std::vector<std::string> agg_names);
 
-  virtual ~ProjectPhysicalOperator() = default;
-
-  void add_expressions(std::vector<std::unique_ptr<Expression>> &&expressions)
-  {
-    
-  }
-  void add_projection(const Table *table, const FieldMeta *field);
+  virtual ~AggregationPhysicalOperator() = default;
 
   PhysicalOperatorType type() const override
   {
-    return PhysicalOperatorType::PROJECT;
+    return PhysicalOperatorType::AGGREGATE;
   }
 
   RC open(Trx *trx) override;
   RC next() override;
   RC close() override;
-  RC set_schema(TupleSchema &schema);
-  int cell_num() const
-  {
-    return tuple_.cell_num();
-  }
-
   Tuple *current_tuple() override;
+  RC set_schema(TupleSchema & schema);
 
 private:
-  ProjectTuple tuple_;
+  AggregateTuple tuple_;
+  std::vector<AggregateType> agg_types_;
+  std::vector<std::string> agg_names_;
+  bool is_visit=false;
 };

@@ -99,6 +99,9 @@ public:
   std::string get_string() const;
   bool get_boolean() const;
   int get_date() const;
+  void my_add(Value data);
+  void my_add(int data);
+  void my_div(int count);
 private:
   AttrType attr_type_ = UNDEFINED;
   int length_ = 0;

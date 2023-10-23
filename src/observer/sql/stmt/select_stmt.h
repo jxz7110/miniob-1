@@ -58,6 +58,13 @@ public:
   {
     return filter_stmt_;
   }
+  std::vector<std::string> &agg_types()
+  {
+    return agg_types_;
+  }
+  std::vector<std::string> &agg_names()
+  {
+    return agg_names_;
   const RelationType table_type() const
   {
     return table_type_;
@@ -75,6 +82,8 @@ private:
   std::vector<Field> query_fields_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
+  std::vector<std::string> agg_types_;//聚合函数类型
+  std::vector<std::string> agg_names_;//聚合函数内部名
   RelationType table_type_;
   JoinOp join_op_;
   std::vector<SelectStmt *> select_stmts_;  // 可能的多表的情况

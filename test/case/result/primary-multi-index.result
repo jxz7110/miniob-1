@@ -1,7 +1,7 @@
 1. MULTI INDEX OF EMPTY TABLE
 CREATE TABLE multi_index(id int, col1 int, col2 float, col3 char, col4 date, col5 int, col6 int);
 SUCCESS
-CREATE INDEX i_1_12 ON multi_index(col1,col2);
+
 SUCCESS
 CREATE INDEX i_1_345 ON multi_index(col3, col4, col5);
 SUCCESS

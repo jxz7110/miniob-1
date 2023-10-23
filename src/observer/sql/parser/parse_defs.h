@@ -38,6 +38,7 @@ struct RelAttrSqlNode
 {
   std::string relation_name;   ///< relation name (may be NULL) 表名
   std::string attribute_name;  ///< attribute name              属性名
+  std::string aggregation_type;///< aggregation_type(may be NULL)聚合函数类型名
 };
 
 /**
@@ -215,7 +216,7 @@ struct CreateIndexSqlNode
 {
   std::string index_name;      ///< Index name
   std::string relation_name;   ///< Relation name
-  std::string attribute_name;  ///< Attribute name
+  std::vector<std::string> attribute_names;  ///< Attribute name
 };
 
 /**

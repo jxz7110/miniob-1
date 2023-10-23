@@ -89,6 +89,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
 
   // collect query fields in `select` statement
   std::vector<Field> query_fields;
+  std::vector<std::string> agg_types;
+  std::vector<std::string> agg_names;
   if (select_sql.attributes.empty()) {
     // 空的情况是join查询，处理方式和*一样
     // 把所有表的所有列都加进去
@@ -98,13 +100,33 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
   }
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0; i--) {
     const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
-
-    if (common::is_blank(relation_attr.relation_name.c_str()) &&
-        0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
-      for (Table *table : tables) {
-        wildcard_fields(table, query_fields);
+    //如果是聚合函数，就放入类型名
+    if(!common::is_blank(relation_attr.aggregation_type.c_str())){
+      agg_types.push_back(relation_attr.aggregation_type);
+      agg_names.push_back(relation_attr.attribute_name);
+    }
+    if (common::is_blank(relation_attr.relation_name.c_str()) && 0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
+      //判断是否是聚合函数
+      if(!common::is_blank((relation_attr.aggregation_type.c_str()))){
+        if(strcmp(relation_attr.aggregation_type.c_str(),"count")!=0){
+          return RC::INVALID_ARGUMENT;
+        }
+        if (tables.size() != 1) {
+          LOG_WARN("invalid. I do not know the attr's table. attr=%s", relation_attr.attribute_name.c_str());
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        Table *table = tables[0];
+        const FieldMeta *field_meta = table->table_meta().field(table->table_meta().sys_field_num());
+        if (nullptr == field_meta) {
+          LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), relation_attr.attribute_name.c_str());
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        query_fields.push_back(Field(table, field_meta));
+      }else {
+        for (Table *table : tables) {
+          wildcard_fields(table, query_fields);
+        }
       }
-
     } else if (!common::is_blank(relation_attr.relation_name.c_str())) {
       const char *table_name = relation_attr.relation_name.c_str();
       const char *field_name = relation_attr.attribute_name.c_str();
@@ -186,6 +208,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
   select_stmt->tables_.swap(tables);
   select_stmt->query_fields_.swap(query_fields);
   select_stmt->filter_stmt_ = filter_stmt;
+  select_stmt->agg_types_ =agg_types;
+  select_stmt->agg_names_ =agg_names;
   stmt = select_stmt;
   return RC::SUCCESS;
 }

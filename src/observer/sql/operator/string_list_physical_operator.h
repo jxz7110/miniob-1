@@ -56,7 +56,6 @@ public:
   {
     return RC::SUCCESS;
   }
-
   RC next() override
   {
     if (!started_) {
@@ -67,7 +66,6 @@ public:
     }
     return iterator_ == strings_.end() ? RC::RECORD_EOF : RC::SUCCESS;
   }
-
   virtual RC close() override
   {
     iterator_ = strings_.end();

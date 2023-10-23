@@ -24,7 +24,6 @@ public:
   RC open(Trx *trx) override;
   RC next() override;
   RC close() override;
-
   Tuple *current_tuple() override { return nullptr; }
 
 private:
