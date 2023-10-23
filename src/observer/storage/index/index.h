@@ -94,7 +94,7 @@ protected:
 protected:
   IndexMeta index_meta_;  ///< 索引的元数据
   FieldMeta field_meta_;  ///< 当前实现仅考虑一个字段的索引
-  bool is_unique_;         ///< 判断是不是唯一索引
+  bool is_unique_ = false;         ///< 判断是不是唯一索引
 };
 
 /**
