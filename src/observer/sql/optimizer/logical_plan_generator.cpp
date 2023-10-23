@@ -91,22 +91,37 @@ RC LogicalPlanGenerator::create_plan(
 
   const std::vector<Table *> &tables = select_stmt->tables();
   const std::vector<Field> &all_fields = select_stmt->query_fields();
-  for (Table *table : tables) {
-    std::vector<Field> fields;
-    for (const Field &field : all_fields) {
-      if (0 == strcmp(field.table_name(), table->name())) {
-        fields.push_back(field);
-      }
-    }
+  if (select_stmt->table_type() == RelationType::JOIN_REL) {
+    // 左右孩子建立
+    unique_ptr<LogicalOperator> left_table_operator = nullptr;
+    unique_ptr<LogicalOperator> right_table_operator = nullptr;
+    create_plan(select_stmt->select_stmts()[0], left_table_operator);
+    create_plan(select_stmt->select_stmts()[1], right_table_operator);
 
-    unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, true/*readonly*/));
-    if (table_oper == nullptr) {
-      table_oper = std::move(table_get_oper);
-    } else {
-      JoinLogicalOperator *join_oper = new JoinLogicalOperator;
-      join_oper->add_child(std::move(table_oper));
-      join_oper->add_child(std::move(table_get_oper));
-      table_oper = unique_ptr<LogicalOperator>(join_oper);
+    // 添加进整体节点
+    JoinLogicalOperator *join_oper = new JoinLogicalOperator;
+    join_oper->add_child(std::move(left_table_operator));
+    join_oper->add_child(std::move(right_table_operator));
+    table_oper = unique_ptr<LogicalOperator>(join_oper);
+  } else if (select_stmt->table_type() == RelationType::SPECIFIC_REL) {
+    for (Table *table : tables) {
+      std::vector<Field> fields;
+      for (const Field &field : all_fields) {
+        if (0 == strcmp(field.table_name(), table->name())) {
+          fields.push_back(field);
+        }
+      }
+
+      // 取单表操作
+      unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, true/*readonly*/));
+      if (table_oper == nullptr) {
+        table_oper = std::move(table_get_oper);
+      } else {
+        JoinLogicalOperator *join_oper = new JoinLogicalOperator;
+        join_oper->add_child(std::move(table_oper));
+        join_oper->add_child(std::move(table_get_oper));
+        table_oper = unique_ptr<LogicalOperator>(join_oper);
+      }
     }
   }
 

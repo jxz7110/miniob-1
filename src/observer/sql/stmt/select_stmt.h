@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/rc.h"
 #include "sql/stmt/stmt.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/field/field.h"
 
 class FieldMeta;
@@ -64,6 +65,17 @@ public:
   std::vector<std::string> &agg_names()
   {
     return agg_names_;
+  const RelationType table_type() const
+  {
+    return table_type_;
+  }
+  const JoinOp join_op() const
+  {
+    return join_op_;
+  }
+  const std::vector<SelectStmt *> select_stmts() const
+  {
+    return select_stmts_;
   }
 
 private:
@@ -72,4 +84,7 @@ private:
   FilterStmt *filter_stmt_ = nullptr;
   std::vector<std::string> agg_types_;//聚合函数类型
   std::vector<std::string> agg_names_;//聚合函数内部名
+  RelationType table_type_;
+  JoinOp join_op_;
+  std::vector<SelectStmt *> select_stmts_;  // 可能的多表的情况
 };

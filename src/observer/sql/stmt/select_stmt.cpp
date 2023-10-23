@@ -44,6 +44,20 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
   }
 
   // collect tables in `from` statement
+  // 这里有两路分支，一种是正常的表，另一种是join连接形成的表
+  // 使用递归算法来做这里
+  SelectStmt *left_select_stmt = nullptr;
+  SelectStmt *right_select_stmt = nullptr;
+  if (select_sql.table_type == RelationType::JOIN_REL) {
+    // 构建两个子表
+    Stmt *left_stmt = nullptr;
+    Stmt *right_stmt = nullptr;
+    create(db, *select_sql.selections[0], left_stmt);
+    create(db, *select_sql.selections[1], right_stmt);
+    left_select_stmt = static_cast<SelectStmt *>(left_stmt);
+    right_select_stmt = static_cast<SelectStmt *>(right_stmt);
+  }
+
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
@@ -62,11 +76,28 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
     tables.push_back(table);
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
   }
+  if (select_sql.table_type == RelationType::JOIN_REL) {
+    for (Table * table : left_select_stmt->tables_) {
+      tables.push_back(table);
+      table_map.insert(std::pair<std::string, Table *>(table->name(), table));
+    }
+    for (Table * table : right_select_stmt->tables_) {
+      tables.push_back(table);
+      table_map.insert(std::pair<std::string, Table *>(table->name(), table));
+    }
+  }
 
   // collect query fields in `select` statement
   std::vector<Field> query_fields;
   std::vector<std::string> agg_types;
   std::vector<std::string> agg_names;
+  if (select_sql.attributes.empty()) {
+    // 空的情况是join查询，处理方式和*一样
+    // 把所有表的所有列都加进去
+    for (Table *table : tables) {
+      wildcard_fields(table, query_fields);
+    }
+  }
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0; i--) {
     const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
     //如果是聚合函数，就放入类型名
@@ -152,7 +183,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
     default_table = tables[0];
   }
 
-  // create filter statement in `where` statement
+  // create filter statement in `where` or `in` statement
   FilterStmt *filter_stmt = nullptr;
   RC rc = FilterStmt::create(db,
       default_table,
@@ -168,6 +199,12 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   // TODO add expression copy
+  select_stmt->table_type_ = select_sql.table_type;
+  if (select_sql.table_type == RelationType::JOIN_REL) {
+    select_stmt->join_op_ = select_sql.join_op;
+    select_stmt->select_stmts_.push_back(left_select_stmt);
+    select_stmt->select_stmts_.push_back(right_select_stmt);
+  }
   select_stmt->tables_.swap(tables);
   select_stmt->query_fields_.swap(query_fields);
   select_stmt->filter_stmt_ = filter_stmt;
