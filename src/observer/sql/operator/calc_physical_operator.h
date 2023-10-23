@@ -66,7 +66,9 @@ public:
   {
     return tuple_.cell_num();
   }
-
+  RC set_schema(TupleSchema &schema){
+    return RC::SUCCESS;
+  }
   Tuple *current_tuple() override
   {
     return &tuple_;

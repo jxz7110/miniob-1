@@ -56,8 +56,32 @@ Tuple *ProjectPhysicalOperator::current_tuple()
 
 void ProjectPhysicalOperator::add_projection(const Table *table, const FieldMeta *field_meta)
 {
-  // 对单表来说，展示的(alias) 字段总是字段名称，
+  // 对单表来说，展示的(alias) 字段总是字段名称
   // 对多表查询来说，展示的alias 需要带表名字
   TupleCellSpec *spec = new TupleCellSpec(table->name(), field_meta->name(), field_meta->name());
   tuple_.add_cell_spec(spec);
+}
+
+RC ProjectPhysicalOperator::set_schema(TupleSchema &schema)
+{
+  bool with_table_name = false;
+  std::vector<TupleCellSpec *> tuples = tuple_.speces();
+  for (size_t i = 1 ; i < tuples.size() ; i++) {
+    if (0 != strcmp(tuples[i]->table_name(), tuples[i-1]->table_name())) {
+      with_table_name = true;
+      break;
+    }
+  }
+  
+  for (const TupleCellSpec *spece :tuple_.speces()) {
+    std::string field_name;
+    if (with_table_name) {
+      field_name += spece->table_name();
+      field_name += ".";
+    }
+    field_name += spece->field_name();
+    schema.append_cell(field_name.c_str());
+  }
+
+  return RC::SUCCESS;
 }

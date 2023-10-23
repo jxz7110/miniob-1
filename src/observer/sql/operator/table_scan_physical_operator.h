@@ -43,7 +43,6 @@ public:
   RC open(Trx *trx) override;
   RC next() override;
   RC close() override;
-
   Tuple *current_tuple() override;
 
   void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs);

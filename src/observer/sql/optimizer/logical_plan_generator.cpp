@@ -25,6 +25,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/project_logical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
+#include "sql/operator/aggregation_func_logical_operator.h"
 
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/calc_stmt.h"
@@ -144,6 +145,16 @@ RC LogicalPlanGenerator::create_plan(
   }
 
   logical_operator.swap(project_oper);
+
+  //有聚合部分，就加入到聚合逻辑算子
+  std::vector<std::string> &agg_types=select_stmt->agg_types();
+  std::vector<std::string> &agg_names=select_stmt->agg_names();
+
+  if(agg_names.size()>0){
+    unique_ptr<LogicalOperator> aggregate_oper(new AggregationLogicalOperator(agg_types,agg_names));
+    aggregate_oper->add_child(std::move(logical_operator));
+    logical_operator.swap(aggregate_oper);
+  }
   return RC::SUCCESS;
 }
 

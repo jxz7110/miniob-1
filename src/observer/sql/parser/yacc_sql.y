@@ -78,6 +78,13 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         STRING_T
         FLOAT_T
         DATE_T
+        //agg-fun
+        MAX
+        MIN
+        COUNT
+        AVG
+        SUM
+
         HELP
         EXIT
         DOT //QUOTE
@@ -105,7 +112,6 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         NE
         LIKE
         NOT
-
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
   ParsedSqlNode *                   sql_node;
@@ -116,6 +122,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   enum RelationType                 relation_type;
   SelectSqlNode *                   select_sql_node;
   RelAttrSqlNode *                  rel_attr;
+  RelAttrSqlNode *                  agg_attr;//聚合部分信息
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
   Expression *                      expression;
@@ -124,6 +131,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<std::string> *        relation_list;
+  std::vector<std::string> *        indexion_list;
   char *                            string;
   int                               number;
   float                             floats;
@@ -141,8 +149,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <value>               value
 %type <number>              number
 %type <comp>                comp_op
-%type <join_op>             join_op
 %type <rel_attr>            rel_attr
+%type <join_op>             join_op
+%type <agg_attr>            agg_attr
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <value_list>          value_list
@@ -153,6 +162,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <select_sql_node>     rel_list
 // %type <relation_list>       rel_list
 %type <rel_attr_list>       attr_list
+%type <rel_attr_list>       agg_list
+%type <indexion_list>       index_list
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <sql_node>            calc_stmt
@@ -176,6 +187,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <sql_node>            help_stmt
 %type <sql_node>            exit_stmt
 %type <sql_node>            command_wrapper
+//FUN-TYPE
+%type <string>              agg_type
+
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
 
@@ -270,17 +284,44 @@ desc_table_stmt:
     }
     ;
 
-create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+create_index_stmt:
+    CREATE INDEX ID ON ID LBRACE ID index_list RBRACE
     {
-      $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
-      CreateIndexSqlNode &create_index = $$->create_index;
-      create_index.index_name = $3;
-      create_index.relation_name = $5;
-      create_index.attribute_name = $7;
-      free($3);
-      free($5);
-      free($7);
+        $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
+        if($3 != nullptr){
+          $$->create_index.index_name = $3;
+          free($3);
+        }
+        if($5 != nullptr){
+          $$->create_index.relation_name = $5;
+          free($5);
+        }
+        if($8 != nullptr){
+          $$->create_index.attribute_names.swap(*$8);
+          delete $8;
+        }
+        if($7 != nullptr){
+          $$->create_index.attribute_names.push_back($7);
+
+        }
+        std::reverse($$->create_index.attribute_names.begin(),$$->create_index.attribute_names.end());
+        free($7);
+        
+    }
+    ;
+index_list:
+    /*empty*/
+    {
+      $$ = nullptr;
+    }
+    | COMMA ID index_list {
+        if($3 !=nullptr){
+            $$ = $3;
+        } else {
+            $$= new std::vector<std::string>;
+        }
+        $$->push_back($2);
+        free($2);
     }
     ;
 
@@ -546,6 +587,15 @@ select_attr:
       $$->emplace_back(*$1);
       delete $1;
     }
+    | agg_attr agg_list {
+      if ($2 != nullptr) {
+        $$ = $2;
+      } else {
+        $$ = new std::vector<RelAttrSqlNode>;
+      }
+      $$->emplace_back(*$1);
+      delete $1;
+    }
     ;
 
 rel_attr:
@@ -562,7 +612,46 @@ rel_attr:
       free($3);
     }
     ;
+agg_attr:
+    agg_type LBRACE ID RBRACE {
+      $$ = new RelAttrSqlNode;
+      $$->attribute_name = $3;
+      $$->aggregation_type = $1;
+      free($3);
+    }
+    |agg_type LBRACE '*' RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$->attribute_name = '*';
+      $$->aggregation_type = $1;
+    }
+    |agg_type LBRACE number RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$->attribute_name = '1';
+      $$->aggregation_type = $1;
+    };
 
+agg_type:
+    MAX{
+      char str[]="max";
+      $$=str;
+    }
+    |MIN{
+      char str[]="min";
+      $$=str;
+    }
+    |COUNT{
+      char str[]="count";
+      $$=str;
+    }
+    |AVG{
+      char str[]="avg";
+      $$=str;
+    }
+    |SUM{
+      char str[]="sum";
+      $$=str;
+    }
+    ;
 attr_list:
     /* empty */
     {
@@ -574,7 +663,22 @@ attr_list:
       } else {
         $$ = new std::vector<RelAttrSqlNode>;
       }
+      $$->emplace_back(*$2);
+      delete $2;
+    }
+    ;
 
+agg_list:
+    /* empty */
+    {
+        $$ = nullptr;
+    }
+    | COMMA agg_attr agg_list {
+      if($3 !=nullptr){
+        $$ = $3;
+      } else {
+        $$ = new std::vector<RelAttrSqlNode>;
+      }
       $$->emplace_back(*$2);
       delete $2;
     }
