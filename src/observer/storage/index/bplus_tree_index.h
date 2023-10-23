@@ -33,7 +33,9 @@ public:
 
   RC insert_entry(const char *record, const RID *rid) override;
   RC delete_entry(const char *record, const RID *rid) override;
-
+  void set_unique(){
+      index_handler_.set_unique();
+  }
   /**
    * 扫描指定范围的数据
    */

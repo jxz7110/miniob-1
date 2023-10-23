@@ -30,7 +30,7 @@ RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, co
     return RC::RECORD_OPENNED;
   }
 
-  Index::init(index_meta, field_meta);
+  Index::init(index_meta, field_meta,index_meta.is_unique());
 
   RC rc = index_handler_.create(file_name, field_meta.type(), field_meta.len());
   if (RC::SUCCESS != rc) {
@@ -58,7 +58,7 @@ RC BplusTreeIndex::open(const char *file_name, const IndexMeta &index_meta, cons
     return RC::RECORD_OPENNED;
   }
 
-  Index::init(index_meta, field_meta);
+  Index::init(index_meta, field_meta,index_meta.is_unique());
 
   RC rc = index_handler_.open(file_name);
   if (RC::SUCCESS != rc) {

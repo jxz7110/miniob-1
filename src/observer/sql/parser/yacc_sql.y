@@ -85,6 +85,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         AVG
         SUM
 
+        UNIQUE
+
         HELP
         EXIT
         DOT //QUOTE
@@ -135,6 +137,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   char *                            string;
   int                               number;
   float                             floats;
+  bool                              bools;
 }
 
 %token <number> NUMBER
@@ -160,7 +163,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <condition_list>      condition_list
 %type <rel_attr_list>       select_attr
 %type <select_sql_node>     rel_list
-// %type <relation_list>       rel_list
+%type <bools>               is_unique
 %type <rel_attr_list>       attr_list
 %type <rel_attr_list>       agg_list
 %type <indexion_list>       index_list
@@ -285,28 +288,37 @@ desc_table_stmt:
     ;
 
 create_index_stmt:
-    CREATE INDEX ID ON ID LBRACE ID index_list RBRACE
+    CREATE is_unique INDEX ID ON ID LBRACE ID index_list RBRACE
     {
         $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
-        if($3 != nullptr){
-          $$->create_index.index_name = $3;
-          free($3);
+        $$->create_index.is_unique = $2;
+        if($4 != nullptr){
+          $$->create_index.index_name = $4;
+          free($4);
         }
-        if($5 != nullptr){
-          $$->create_index.relation_name = $5;
-          free($5);
+        if($6 != nullptr){
+          $$->create_index.relation_name = $6;
+          free($6);
+        }
+        if($9 != nullptr){
+          $$->create_index.attribute_names.swap(*$9);
+          delete $9;
         }
         if($8 != nullptr){
-          $$->create_index.attribute_names.swap(*$8);
-          delete $8;
-        }
-        if($7 != nullptr){
-          $$->create_index.attribute_names.push_back($7);
-
+          $$->create_index.attribute_names.push_back($8);
+          free($8);
         }
         std::reverse($$->create_index.attribute_names.begin(),$$->create_index.attribute_names.end());
-        free($7);
+
         
+    }
+    ;
+is_unique:
+    /*empty*/{
+        $$=false;
+    }
+    | UNIQUE {
+        $$=true;
     }
     ;
 index_list:

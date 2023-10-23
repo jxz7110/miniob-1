@@ -104,21 +104,28 @@ public:
   {
     return attr_comparator_;
   }
-
+  void set_unique(){
+    is_unique_=true;
+  }
   int operator()(const char *v1, const char *v2) const
   {
     int result = attr_comparator_(v1, v2);
     if (result != 0) {
       return result;
     }
+    if(is_unique_ != true){
+      const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
+      const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
+      return RID::compare(rid1, rid2);
+    }else{
+      return result;
+    }
 
-    const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
-    const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
-    return RID::compare(rid1, rid2);
   }
 
 private:
   AttrComparator attr_comparator_;
+  bool is_unique_=false;
 };
 
 /**
@@ -519,7 +526,9 @@ public:
    */
   RC print_tree();
   RC print_leafs();
-
+  void set_unique(){
+    key_comparator_.set_unique();
+  }
 private:
   /**
    * 这些函数都是线程不安全的，不要在多线程的环境下调用
@@ -561,6 +570,7 @@ protected:
   void update_root_page_num_locked(PageNum root_page_num);
 
   RC adjust_root(LatchMemo &latch_memo, Frame *root_frame);
+
 
 private:
   common::MemPoolItem::unique_ptr make_key(const char *user_key, const RID &rid);

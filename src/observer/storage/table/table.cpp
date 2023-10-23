@@ -28,6 +28,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/index.h"
 #include "storage/index/bplus_tree_index.h"
 #include "storage/trx/trx.h"
+#include "sql/expr/tuple.h"
+
 
 Table::~Table()
 {
@@ -325,6 +327,62 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
     }
   }
 
+//  std::map<string,std::set<Value>> Myunique;
+//  std::set<string> uniquename;
+//  //便利所有的索引并且判断是否有唯一索引，并对唯一索引的属性设置一个set
+//  for(Index * index : indexes_){
+//    BplusTreeIndex *Bplus_index =static_cast<BplusTreeIndex*>(index);
+//    if(Bplus_index->is_unique()==true){
+//      uniquename.insert(index->field_meta().name());
+//    }
+//  }
+//  if(uniquename.size()>0){
+//
+//  }
+//  //遍历索引对应的所有数据
+//  if(uniquename.size()>0){
+//    IndexScanner *indexScanner = indexes_[0]->create_scanner(nullptr,0,false, nullptr,0,false);
+//    if(nullptr == indexScanner){
+//      LOG_WARN("failed to create index scanner");
+//      return RC::INTERNAL;
+//    }
+//    record_handler_= this->record_handler();
+//    if(nullptr == record_handler_){
+//      LOG_WARN("invalid record handler");
+//      indexScanner->destroy();
+//      return RC::INTERNAL;
+//    }
+//    RID rid;
+//    RC rc=RC::SUCCESS;
+//    RecordPageHandler record_page_handler;
+//    Record current_record;
+//    RowTuple tuple;
+//    record_page_handler.cleanup();
+//    while(RC::SUCCESS == (rc = indexScanner->next_entry(&rid))){
+//      rc = record_handler_->get_record(record_page_handler,&rid,true,&current_record);
+//      if(rc != RC::SUCCESS){
+//        return rc;
+//      }
+//      tuple.set_record(&current_record);
+//      for(int i=0; i<value_num; i++){
+//        const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+//        //判断是否是对应的唯一索引
+//        if(uniquename.count(field->name())==0){
+//          continue;
+//        }
+//        Value temp;
+//        rc = tuple.cell_at(i,temp);
+//        if(rc!=RC::SUCCESS){
+//          return rc;
+//        }
+//        //Myunique[field->name()].insert(temp);
+//
+//      }
+//    }
+//  }
+
+
+
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
   char *record_data = (char *)malloc(record_size);
@@ -379,7 +437,7 @@ RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly
   return rc;
 }
 
-RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name)
+RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name, bool is_unique)
 {
   if (common::is_blank(index_name) || nullptr == field_meta) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
@@ -387,7 +445,7 @@ RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_
   }
 
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, *field_meta);
+  RC rc = new_index_meta.init(index_name, *field_meta, is_unique);
   if (rc != RC::SUCCESS) {
     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", 
              name(), index_name, field_meta->name());
@@ -490,7 +548,13 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
 {
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
-    rc = index->insert_entry(record, &rid);
+    if(index->is_unique()){
+      BplusTreeIndex *BplusIndex = static_cast<BplusTreeIndex*>(index);
+      BplusIndex->set_unique();
+      rc = BplusIndex->insert_entry(record, &rid);
+    }else{
+      rc = index->insert_entry(record, &rid);
+    }
     if (rc != RC::SUCCESS) {
       break;
     }
