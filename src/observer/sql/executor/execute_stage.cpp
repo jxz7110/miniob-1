@@ -67,25 +67,13 @@ RC ExecuteStage::handle_request_with_physical_operator(SQLStageEvent *sql_event)
   TupleSchema schema;
   switch (stmt->type()) {
     case StmtType::SELECT: {
-      //原来的代码:
-//      SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
-//      bool with_table_name = select_stmt->tables().size() > 1;
-//
-//      for (const Field &field : select_stmt->query_fields()) {
-//        if (with_table_name) {
-//          schema.append_cell(field.table_name(), field.field_name());
-//        } else {
-//          schema.append_cell(field.field_name());
-//        }
-//      }
-
-      //这一部分设置输出表头  按照TODO要求，在physical内部自己实现，这里是在physical上面自己写了一个基类，然后再返回具体表头
-
+      //这一部分设置输出表头
+      //在physical内部自己实现
+      //在physical上面自己写了一个基类，然后再返回具体表头
       rc =physical_operator.get()->set_schema(schema);
       if(rc !=RC::SUCCESS){
         return rc;
       }
-
     } break;
 
     case StmtType::CALC: {

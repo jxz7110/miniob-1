@@ -65,6 +65,7 @@ public:
   std::vector<std::string> &agg_names()
   {
     return agg_names_;
+  }
   const RelationType table_type() const
   {
     return table_type_;

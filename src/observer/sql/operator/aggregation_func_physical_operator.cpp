@@ -159,7 +159,7 @@ Tuple *AggregationPhysicalOperator::current_tuple()
   return &tuple_;
 }
 
-RC AggregationPhysicalOperator::set_schema(TupleSchema & schema)
+RC AggregationPhysicalOperator::set_schema(TupleSchema &schema)
 {
   for(int i=0; i<agg_names_.size(); i++){
     switch(agg_types_[i]){

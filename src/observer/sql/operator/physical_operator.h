@@ -72,10 +72,13 @@ public:
   virtual RC open(Trx *trx) = 0;
   virtual RC next() = 0;
   virtual RC close() = 0;
-  virtual RC set_schema(TupleSchema &schema){
-      return RC::SUCCESS;
-  };
   virtual Tuple *current_tuple() = 0;
+
+  // 最靠近输出的operator负责set_schema
+  // 通常是aggregation或project操作
+  virtual RC set_schema(TupleSchema &schema){
+    return RC::SUCCESS;
+  };
 
   void add_child(std::unique_ptr<PhysicalOperator> oper)
   {
