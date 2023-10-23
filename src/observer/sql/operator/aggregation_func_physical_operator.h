@@ -49,34 +49,8 @@ public:
   RC open(Trx *trx) override;
   RC next() override;
   RC close() override;
-  RC set_schema(TupleSchema & schema){
-    for(int i=0; i<agg_names_.size(); i++){
-      switch(agg_types_[i]){
-        case AggregateType::MAX:{
-          std::string t="MAX(" + agg_names_[i] +")";
-          schema.append_cell(t.c_str());
-        }break;
-        case AggregateType::MIN:{
-          std::string t="MIN(" + agg_names_[i] +")";
-          schema.append_cell(t.c_str());
-        }break;
-        case AggregateType::COUNT:{
-          std::string t="COUNT(" + agg_names_[i] +")";
-          schema.append_cell(t.c_str());
-        }break;
-        case AggregateType::SUM:{
-          std::string t="SUM(" + agg_names_[i] +")";
-          schema.append_cell(t.c_str());
-        }break;
-        case AggregateType::AVG:{
-          std::string t="AVG(" + agg_names_[i] +")";
-          schema.append_cell(t.c_str());
-        }break;
-      }
-
-    }
-  }
   Tuple *current_tuple() override;
+  RC set_schema(TupleSchema & schema);
 
 private:
   AggregateTuple tuple_;
