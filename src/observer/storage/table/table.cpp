@@ -192,22 +192,30 @@ RC Table::open(const char *meta_file, const char *base_dir)
   }
 
   base_dir_ = base_dir;
-
   const int index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {
     const IndexMeta *index_meta = table_meta_.index(i);
-    const FieldMeta *field_meta = table_meta_.field(index_meta->field());
-    if (field_meta == nullptr) {
-      LOG_ERROR("Found invalid index meta info which has a non-exists field. table=%s, index=%s, field=%s",
-                name(), index_meta->name(), index_meta->field());
-      // skip cleanup
-      //  do all cleanup action in destructive Table function
-      return RC::INTERNAL;
+    const std::vector<std::string> *index_field_names = index_meta->field();
+    std::vector<const FieldMeta*> field_metas;
+
+    for (size_t i = 0; i < index_field_names->size(); i++) {
+      const char *field_name = index_field_names->at(i).data();
+      const FieldMeta *field_meta = table_meta_.field(field_name);
+      if (field_meta == nullptr) {
+        LOG_ERROR("Found invalid index meta info which has a non-exists field. table=%s, index=%s, field=%s",
+            name(),
+            index_meta->name(),
+            index_meta->field());
+        // skip cleanup
+        //  do all cleanup action in destructive Table function
+        return RC::INTERNAL;
+      }
+      field_metas.push_back(field_meta);
     }
 
     BplusTreeIndex *index = new BplusTreeIndex();
     std::string index_file = table_index_file(base_dir, name(), index_meta->name());
-    rc = index->open(index_file.c_str(), *index_meta, *field_meta);
+    rc = index->open(index_file.c_str(), *index_meta, field_metas);
     if (rc != RC::SUCCESS) {
       delete index;
       LOG_ERROR("Failed to open index. table=%s, index=%s, file=%s, rc=%s",
@@ -327,59 +335,7 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
     }
   }
 
-//  std::map<string,std::set<Value>> Myunique;
-//  std::set<string> uniquename;
-//  //便利所有的索引并且判断是否有唯一索引，并对唯一索引的属性设置一个set
-//  for(Index * index : indexes_){
-//    BplusTreeIndex *Bplus_index =static_cast<BplusTreeIndex*>(index);
-//    if(Bplus_index->is_unique()==true){
-//      uniquename.insert(index->field_meta().name());
-//    }
-//  }
-//  if(uniquename.size()>0){
-//
-//  }
-//  //遍历索引对应的所有数据
-//  if(uniquename.size()>0){
-//    IndexScanner *indexScanner = indexes_[0]->create_scanner(nullptr,0,false, nullptr,0,false);
-//    if(nullptr == indexScanner){
-//      LOG_WARN("failed to create index scanner");
-//      return RC::INTERNAL;
-//    }
-//    record_handler_= this->record_handler();
-//    if(nullptr == record_handler_){
-//      LOG_WARN("invalid record handler");
-//      indexScanner->destroy();
-//      return RC::INTERNAL;
-//    }
-//    RID rid;
-//    RC rc=RC::SUCCESS;
-//    RecordPageHandler record_page_handler;
-//    Record current_record;
-//    RowTuple tuple;
-//    record_page_handler.cleanup();
-//    while(RC::SUCCESS == (rc = indexScanner->next_entry(&rid))){
-//      rc = record_handler_->get_record(record_page_handler,&rid,true,&current_record);
-//      if(rc != RC::SUCCESS){
-//        return rc;
-//      }
-//      tuple.set_record(&current_record);
-//      for(int i=0; i<value_num; i++){
-//        const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
-//        //判断是否是对应的唯一索引
-//        if(uniquename.count(field->name())==0){
-//          continue;
-//        }
-//        Value temp;
-//        rc = tuple.cell_at(i,temp);
-//        if(rc!=RC::SUCCESS){
-//          return rc;
-//        }
-//        //Myunique[field->name()].insert(temp);
-//
-//      }
-//    }
-//  }
+
 
 
 
@@ -437,25 +393,48 @@ RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly
   return rc;
 }
 
-RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name, bool is_unique)
+RC Table::create_index(Trx *trx, std::vector<const FieldMeta*> field_meta, const char *index_name, bool is_unique)
 {
-  if (common::is_blank(index_name) || nullptr == field_meta) {
-    LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
+  if (common::is_blank(index_name)) {
+    LOG_INFO("Invalid input arguments, table name is %s, index_name is blank ", name());
     return RC::INVALID_ARGUMENT;
   }
 
+  //indexmeta初始化
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, *field_meta, is_unique);
+  std::vector<std::string> fields;
+  for(auto field : field_meta){
+    if (common::is_blank(field->name())) {
+      LOG_INFO("Invalid input arguments, table name is %s, attribute_name is blank", name());
+      return RC::INVALID_ARGUMENT;
+    }
+    fields.push_back(field->name());
+  }
+  RC rc = new_index_meta.init(index_name, is_unique, fields);
   if (rc != RC::SUCCESS) {
-    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", 
-             name(), index_name, field_meta->name());
+    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s",name(), index_name);
     return rc;
   }
+//这一部分是之后NULL的使用
+//  std::vector<int> field_idx;  //  每一列在bitmap中的位置
+//  std::vector<FieldMeta> field_metas;
+//  index的第0个field是标记NULL的bitmap
+//  field_metas.push_back(*table_meta_.null_bitmap_field());
+//  for (int i = 0; i < field_meta.size(); i++) {
+//    const FieldMeta *field_meta = table_meta_.field(field_meta[i].name());
+//    if (!field_meta) {
+//      LOG_INFO("Invalid input arguments, there is no field of %s in table:%s.", field_meta[i].name(), name());
+//      return RC::SCHEMA_FIELD_MISSING;
+//    }
+//    FieldMeta tmp_field_meat = *field_meta;
+//    field_metas.push_back(tmp_field_meat);
+//  }
+
 
   // 创建索引相关数据
   BplusTreeIndex *index = new BplusTreeIndex();
   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name);
-  rc = index->create(index_file.c_str(), new_index_meta, *field_meta);
+  rc = index->create(index_file.c_str(), new_index_meta, field_meta);
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
@@ -466,7 +445,7 @@ RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_
   RecordFileScanner scanner;
   rc = get_record_scanner(scanner, trx, true/*readonly*/);
   if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to create scanner while creating index. table=%s, index=%s, rc=%s", 
+    LOG_WARN("failed to create scanner while creating index. table=%s, index=%s, rc=%s",
              name(), index_name, strrc(rc));
     return rc;
   }
@@ -548,13 +527,7 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
 {
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
-    if(index->is_unique()){
-      BplusTreeIndex *BplusIndex = static_cast<BplusTreeIndex*>(index);
-      BplusIndex->set_unique();
-      rc = BplusIndex->insert_entry(record, &rid);
-    }else{
-      rc = index->insert_entry(record, &rid);
-    }
+    rc = index->insert_entry(record, &rid);
     if (rc != RC::SUCCESS) {
       break;
     }

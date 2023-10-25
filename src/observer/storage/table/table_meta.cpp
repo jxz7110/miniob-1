@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include <common/lang/string.h>
 
 #include "storage/table/table_meta.h"
+#include "storage/field/field_meta.h"
 #include "json/json.h"
 #include "common/log/log.h"
 #include "storage/trx/trx.h"
@@ -76,8 +77,8 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num, const Attr
 
   for (int i = 0; i < field_num; i++) {
     const AttrInfoSqlNode &attr_info = attributes[i];
-    rc = fields_[i + trx_field_num].init(attr_info.name.c_str(), 
-            attr_info.type, field_offset, attr_info.length, true/*visible*/);
+    //倒数第二个参数  static_cast<bool>(attr_info.nullable), //这一部分是NULL使用
+    rc = fields_[i + trx_field_num].init(i+trx_field_num, attr_info.name.c_str(), attr_info.type, field_offset, attr_info.length, false, true);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name.c_str());
       return rc;
@@ -167,8 +168,17 @@ const IndexMeta *TableMeta::index(const char *name) const
 
 const IndexMeta *TableMeta::find_index_by_field(const char *field) const
 {
+  std::string field_name = field;
+  std::vector<std::string> fields;
+  fields.push_back(field_name);
+  return find_index_by_field(fields);
+}
+
+const IndexMeta *TableMeta::find_index_by_field(std::vector<std::string> field) const
+{
+
   for (const IndexMeta &index : indexes_) {
-    if (0 == strcmp(index.field(), field)) {
+    if (field == *index.field()) {
       return &index;
     }
   }
